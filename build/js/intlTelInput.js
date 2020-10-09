@@ -96,7 +96,7 @@
             // localized country names e.g. { 'de': 'Deutschland' }
             localizedCountries: null,
             // don't insert international dial codes
-            nationalMode: true,
+            nationalMode: false,
             // display only these countries
             onlyCountries: [],
             // number type to use for placeholders
