@@ -73,7 +73,7 @@
         var defaults = {
             // whether or not to allow the dropdown
             allowDropdown: true,
-            // if there is just a dial code in the input: remove it on blur
+            // if there is just a dial code in the input: remove it on blur, and re-add it on focus
             autoHideDialCode: true,
             // add a placeholder in the input with an example number for the selected country
             autoPlaceholder: "polite",
@@ -480,6 +480,7 @@
                 key: "_initListeners",
                 value: function _initListeners() {
                     this._initKeyListeners();
+                    if (this.options.autoHideDialCode) this._initFocusListeners();
                     if (this.options.autoHideDialCode) this._initBlurListeners();
                     if (this.options.allowDropdown) this._initDropdownListeners();
                     if (this.hiddenInput) this._initHiddenInputListener();
@@ -627,12 +628,50 @@
                     return max && number.length > max ? number.substr(0, max) : number;
                 }
             }, {
+                key: "_initFocusListeners",
+                value: function _initFocusListeners() {
+                    var _this7 = this;
+                    // mousedown decides where the cursor goes, so if we're focusing we must preventDefault as
+                    // we'll be inserting the dial code, and we want the cursor to be at the end no matter where
+                    // they click
+                    this._handleMousedownFocusEvent = function(e) {
+                        if (_this7.telInput !== document.activeElement && !_this7.telInput.value) {
+                            e.preventDefault();
+                            // but this also cancels the focus, so we must trigger that manually
+                            _this7.telInput.focus();
+                        }
+                    };
+                    this.telInput.addEventListener("mousedown", this._handleMousedownFocusEvent);
+                    this._handleKeypressPlusEvent = function(e) {
+                        if (e.key === "+") _this7.telInput.value = "";
+                    };
+                    // on focus: if empty, insert the dial code for the currently selected flag
+                    this._handleFocusEvent = function() {
+                        if (!_this7.telInput.value && !_this7.telInput.readOnly && _this7.selectedCountryData.dialCode) {
+                            // insert the dial code
+                            _this7.telInput.value = "+".concat(_this7.selectedCountryData.dialCode);
+                            // after auto-inserting a dial code, if the first key they hit is '+' then assume they are
+                            // entering a new number, so remove the dial code. use keypress instead of keydown because
+                            // keydown gets triggered for the shift key (required to hit the + key), and instead of
+                            // keyup because that shows the new '+' before removing the old one
+                            _this7.telInput.addEventListener("keypress", _this7._handleKeypressPlusEvent);
+                            // after tabbing in, make sure the cursor is at the end we must use setTimeout to get
+                            // outside of the focus handler as it seems the selection happens after that
+                            setTimeout(function() {
+                                var len = _this7.telInput.value.length;
+                                _this7.telInput.setSelectionRange(len, len);
+                            });
+                        }
+                    };
+                    this.telInput.addEventListener("focus", this._handleFocusEvent);
+                }
+            }, {
                 key: "_initBlurListeners",
                 value: function _initBlurListeners() {
-                    var _this7 = this;
+                    var _this8 = this;
                     // on blur or form submit: if just a dial code then remove it
                     this._handleSubmitOrBlurEvent = function() {
-                        _this7._removeEmptyDialCode();
+                        _this8._removeEmptyDialCode();
                     };
                     if (this.telInput.form) this.telInput.form.addEventListener("submit", this._handleSubmitOrBlurEvent);
                     this.telInput.addEventListener("blur", this._handleSubmitOrBlurEvent);
@@ -647,6 +686,8 @@
                             this.telInput.value = "";
                         }
                     }
+                    // remove the keypress listener we added on focus
+                    this.telInput.removeEventListener("keypress", this._handleKeypressPlusEvent);
                 }
             }, {
                 key: "_getNumeric",
@@ -687,7 +728,7 @@
             }, {
                 key: "_setDropdownPosition",
                 value: function _setDropdownPosition() {
-                    var _this8 = this;
+                    var _this9 = this;
                     if (this.options.dropdownContainer) {
                         this.options.dropdownContainer.appendChild(this.dropdown);
                     }
@@ -713,7 +754,7 @@
                             this.dropdown.style.left = "".concat(pos.left + document.body.scrollLeft, "px");
                             // close menu on window scroll
                             this._handleWindowScroll = function() {
-                                return _this8._closeDropdown();
+                                return _this9._closeDropdown();
                             };
                             window.addEventListener("scroll", this._handleWindowScroll);
                         }
@@ -732,19 +773,19 @@
             }, {
                 key: "_bindDropdownListeners",
                 value: function _bindDropdownListeners() {
-                    var _this9 = this;
+                    var _this10 = this;
                     // when mouse over a list item, just highlight that one
                     // we add the class "highlight", so if they hit "enter" we know which one to select
                     this._handleMouseoverCountryList = function(e) {
                         // handle event delegation, as we're listening for this event on the countryList
-                        var listItem = _this9._getClosestListItem(e.target);
-                        if (listItem) _this9._highlightListItem(listItem, false);
+                        var listItem = _this10._getClosestListItem(e.target);
+                        if (listItem) _this10._highlightListItem(listItem, false);
                     };
                     this.countryList.addEventListener("mouseover", this._handleMouseoverCountryList);
                     // listen for country selection
                     this._handleClickCountryList = function(e) {
-                        var listItem = _this9._getClosestListItem(e.target);
-                        if (listItem) _this9._selectListItem(listItem);
+                        var listItem = _this10._getClosestListItem(e.target);
+                        if (listItem) _this10._selectListItem(listItem);
                     };
                     this.countryList.addEventListener("click", this._handleClickCountryList);
                     // click off to close
@@ -752,7 +793,7 @@
                     // we cannot just stopPropagation as it may be needed to close another instance
                     var isOpening = true;
                     this._handleClickOffToClose = function() {
-                        if (!isOpening) _this9._closeDropdown();
+                        if (!isOpening) _this10._closeDropdown();
                         isOpening = false;
                     };
                     document.documentElement.addEventListener("click", this._handleClickOffToClose);
@@ -767,11 +808,11 @@
                         // and enter key from submitting a form etc
                         e.preventDefault();
                         // up and down to navigate
-                        if (e.key === "ArrowUp" || e.key === "Up" || e.key === "ArrowDown" || e.key === "Down") _this9._handleUpDownKey(e.key); else if (e.key === "Enter") _this9._handleEnterKey(); else if (e.key === "Escape") _this9._closeDropdown(); else if (/^[a-zA-ZÀ-ÿа-яА-Я ]$/.test(e.key)) {
+                        if (e.key === "ArrowUp" || e.key === "Up" || e.key === "ArrowDown" || e.key === "Down") _this10._handleUpDownKey(e.key); else if (e.key === "Enter") _this10._handleEnterKey(); else if (e.key === "Escape") _this10._closeDropdown(); else if (/^[a-zA-ZÀ-ÿа-яА-Я ]$/.test(e.key)) {
                             // jump to countries that start with the query string
                             if (queryTimer) clearTimeout(queryTimer);
                             query += e.key.toLowerCase();
-                            _this9._searchForCountry(query);
+                            _this10._searchForCountry(query);
                             // if the timer hits 1 second, reset the query
                             queryTimer = setTimeout(function() {
                                 query = "";
@@ -1209,6 +1250,8 @@
                     if (this.hiddenInput && form) form.removeEventListener("submit", this._handleHiddenInputSubmit);
                     // unbind autoHideDialCode listeners
                     if (this.options.autoHideDialCode) {
+                        this.telInput.removeEventListener("mousedown", this._handleMousedownFocusEvent);
+                        this.telInput.removeEventListener("focus", this._handleFocusEvent);
                         if (form) form.removeEventListener("submit", this._handleSubmitOrBlurEvent);
                         this.telInput.removeEventListener("blur", this._handleSubmitOrBlurEvent);
                     }
