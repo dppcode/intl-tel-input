@@ -599,6 +599,7 @@
                 var _this6 = this;
                 // update flag on keyup
                 this._handleKeyupEvent = function() {
+                    _this6._ensurePlus();
                     if (_this6._updateFlagFromNumber(_this6.telInput.value)) {
                         _this6._triggerCountryChange();
                     }
@@ -611,6 +612,18 @@
                 };
                 this.telInput.addEventListener("cut", this._handleClipboardEvent);
                 this.telInput.addEventListener("paste", this._handleClipboardEvent);
+            }
+        }, {
+            key: "_ensurePlus",
+            value: function _ensurePlus() {
+                if (!this.options.nationalMode) {
+                    if (this.telInput.value.charAt(0) !== "+") {
+                        // newCursorPos is current pos + 1 to account for the plus we are about to add
+                        var newCursorPos = this.telInput.selectionStart + 1;
+                        this.telInput.value = "+".concat(this.telInput.value);
+                        this.telInput.setSelectionRange(newCursorPos, newCursorPos);
+                    }
+                }
             }
         }, {
             key: "_cap",

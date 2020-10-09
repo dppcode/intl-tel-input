@@ -585,6 +585,7 @@ class Iti {
   _initKeyListeners() {
     // update flag on keyup
     this._handleKeyupEvent = () => {
+      this._ensurePlus();
       if (this._updateFlagFromNumber(this.telInput.value)) {
         this._triggerCountryChange();
       }
@@ -598,6 +599,19 @@ class Iti {
     };
     this.telInput.addEventListener('cut', this._handleClipboardEvent);
     this.telInput.addEventListener('paste', this._handleClipboardEvent);
+  }
+
+
+  // prevent deleting the plus (if not in nationalMode)
+  _ensurePlus() {
+    if (!this.options.nationalMode) {
+      if (this.telInput.value.charAt(0) !== '+') {
+        // newCursorPos is current pos + 1 to account for the plus we are about to add
+        const newCursorPos = this.telInput.selectionStart + 1;
+        this.telInput.value = `+${this.telInput.value}`;
+        this.telInput.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }
   }
 
 
